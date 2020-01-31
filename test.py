@@ -37,71 +37,124 @@ def warp_image_adjoint(resampler, dynamic_image):
     return resampler.adjoint(dynamic_image).as_array().astype(np.double)
 
 
-def objective_function(optimise_array, resampler, dynamic_images, static_image, output_path):
+def gradient_function(optimise_array, static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude,
+                      output_path):
     static_image.fill(np.reshape(optimise_array, static_image.as_array().astype(np.double).shape))
 
-    objective_value = 0.0
-
-    for i in range(len(dynamic_images)):
-        objective_value = objective_value + (np.nansum(
-            np.square(dynamic_images[i].as_array().astype(np.double) - warp_image_forward(resampler[i], static_image),
-                      dtype=np.double), dtype=np.double) / 2.0)
-
-    print("Objective function value: {0}".format(str(objective_value)))
-
-    return objective_value
-
-
-def gradient_function(optimise_array, resampler, dynamic_images, static_image, output_path):
-    static_image.fill(np.reshape(optimise_array, static_image.as_array().astype(np.double).shape))
+    temp_static_image_path = "{0}/temp_static.nii".format(output_path)
+    temp_dynamic_image_path = "{0}/temp_dynamic.nii".format(output_path)
+    temp_dvf_path = "{0}/temp_dvf.nii".format(output_path)
 
     gradient_value = static_image.clone()
     gradient_value.fill(0.0)
 
     adjoint_image = static_image.clone()
 
-    for i in range(len(dynamic_images)):
-        static_image.write("{0}/temp_static.nii".format(output_path))
-        dynamic_images[i].write("{0}/temp_dynamic.nii".format(output_path))
+    for i in range(len(dynamic_path)):
+        dynamic_image = reg.NiftiImageData(dynamic_path[i])
+        dvf_image = reg.NiftiImageData3DDeformation(dvf_path[i])
 
-        temp_static = reg.NiftiImageData("{0}/temp_static.nii".format(output_path))
-        temp_dynamic = reg.NiftiImageData("{0}/temp_dynamic.nii".format(output_path))
+        static_image.write(temp_static_image_path)
+        dynamic_image.write(temp_dynamic_image_path)
+        dvf_image.write(temp_dvf_path)
 
-        adjoint_image.fill(warp_image_forward(resampler[i], temp_static) - temp_dynamic.as_array().astype(np.double))
+        temp_static = reg.NiftiImageData(temp_static_image_path)
+        temp_dynamic = reg.NiftiImageData(temp_dynamic_image_path)
+        temp_dvf = reg.NiftiImageData3DDeformation(temp_dvf_path)
 
-        gradient_value.fill(
-            (gradient_value.as_array().astype(np.double) + warp_image_adjoint(resampler[i], adjoint_image)))
+        resampler = reg.NiftyResample()
 
-    gradient_value.write("{0}/gradient.nii".format(output_path))
+        resampler.set_reference_image(temp_static)
+        resampler.set_floating_image(temp_dynamic)
+        resampler.add_transformation(temp_dvf)
+
+        resampler.set_interpolation_type_to_cubic_spline()
+
+        adjoint_image.fill(((np.nansum(dynamic_image.as_array().astype(np.double),
+                                       dtype=np.double) / dynamic_data_magnitude) * warp_image_forward(resampler,
+                                                                                                       temp_static)) - temp_dynamic.as_array().astype(
+            np.double))
+        gradient_value.fill((gradient_value.as_array().astype(np.double) + (
+                    warp_image_adjoint(resampler, adjoint_image) * weighted_normalise[i])))
+
+        gradient_value.write("{0}/gradient.nii".format(output_path))
 
     print("Max gradient value: {0}, Min gradient value: {1}, Mean gradient value: {2}, Gradient norm: {3}".format(
-        str(gradient_value.as_array().astype(np.double).max()), str(gradient_value.as_array().astype(np.double).min()),
+        str(gradient_value.as_array().astype(np.double).max()),
+        str(gradient_value.as_array().astype(np.double).min()),
         str(np.nanmean(gradient_value.as_array().astype(np.double), dtype=np.double)),
         str(np.linalg.norm(gradient_value.as_array().astype(np.double)))))
 
     return np.ravel(gradient_value.as_array().astype(np.double)).astype(np.double)
 
 
-def output_input(static_image, dynamic_array, dvf_array, output_path):
+def objective_function(optimise_array, static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude,
+                       output_path):
+    static_image.fill(np.reshape(optimise_array, static_image.as_array().astype(np.double).shape))
+
+    temp_static_image_path = "{0}/temp_static.nii".format(output_path)
+    temp_dynamic_image_path = "{0}/temp_dynamic.nii".format(output_path)
+    temp_dvf_path = "{0}/temp_dvf.nii".format(output_path)
+
+    objective_value = 0.0
+
+    for i in range(len(dynamic_path)):
+        dynamic_image = reg.NiftiImageData(dynamic_path[i])
+        dvf_image = reg.NiftiImageData3DDeformation(dvf_path[i])
+
+        static_image.write(temp_static_image_path)
+        dynamic_image.write(temp_dynamic_image_path)
+        dvf_image.write(temp_dvf_path)
+
+        temp_static = reg.NiftiImageData(temp_static_image_path)
+        temp_dynamic = reg.NiftiImageData(temp_dynamic_image_path)
+        temp_dvf = reg.NiftiImageData3DDeformation(temp_dvf_path)
+
+        resampler = reg.NiftyResample()
+
+        resampler.set_reference_image(temp_static)
+        resampler.set_floating_image(temp_dynamic)
+        resampler.add_transformation(temp_dvf)
+
+        resampler.set_interpolation_type_to_cubic_spline()
+
+        objective_value = objective_value + (np.nansum(np.square(dynamic_image.as_array().astype(np.double) - ((
+                                                                                                                       np.nansum(
+                                                                                                                           dynamic_image.as_array().astype(
+                                                                                                                               np.double),
+                                                                                                                           dtype=np.double) / dynamic_data_magnitude) * warp_image_forward(
+            resampler, static_image)), dtype=np.double), dtype=np.double) * weighted_normalise[i])
+
+    print("Objective function value: {0}".format(str(objective_value)))
+
+    return objective_value
+
+
+def output_input(static_image, dynamic_path, dvf_path, output_path):
     static_image.write("{0}/static_image.nii".format(output_path))
 
-    for i in range(len(dynamic_array)):
-        dynamic_array[i].write("{0}/dynamic_array_{1}.nii".format(output_path, str(i)))
-        dvf_array[i].write("{0}/dvf_array_{1}.nii".format(output_path, str(i)))
+    for i in range(len(dynamic_path)):
+        dynamic_image = reg.NiftiImageData(dynamic_path[i])
+        dvf_image = reg.NiftiImageData3DDeformation(dvf_path[i])
+
+        dynamic_image.write("{0}/dynamic_image_{1}.nii".format(output_path, str(i)))
+        dvf_image.write("{0}/dvf_image_{1}.nii".format(output_path, str(i)))
 
     return True
 
 
-def test_for_adj(static_image, dvf_array, output_path):
-    static_image_path = "{0}/temp_static.nii".format(output_path)
-    dvf_array_path = "{0}/temp_dvf.nii".format(output_path)
+def test_for_adj(static_image, dvf_path, output_path):
+    temp_static_image_path = "{0}/temp_static.nii".format(output_path)
+    temp_dvf_path = "{0}/temp_dvf.nii".format(output_path)
 
-    for i in range(len(dvf_array)):
-        static_image.write(static_image_path)
-        dvf_array[i].write(dvf_array_path)
+    for i in range(len(dvf_path)):
+        dvf_image = reg.NiftiImageData3DDeformation(dvf_path[i])
 
-        temp_static = reg.NiftiImageData(static_image_path)
-        temp_dvf = reg.NiftiImageData3DDeformation(dvf_array_path)
+        static_image.write(temp_static_image_path)
+        dvf_image.write(temp_dvf_path)
+
+        temp_static = reg.NiftiImageData(temp_static_image_path)
+        temp_dvf = reg.NiftiImageData3DDeformation(temp_dvf_path)
 
         resampler = reg.NiftyResample()
 
@@ -109,7 +162,7 @@ def test_for_adj(static_image, dvf_array, output_path):
         resampler.set_floating_image(temp_static)
         resampler.add_transformation(temp_dvf)
 
-        resampler.set_interpolation_type_to_linear()
+        resampler.set_interpolation_type_to_cubic_spline()
 
         warp = warp_image_forward(resampler, temp_static)
 
@@ -164,7 +217,7 @@ def get_resamplers(static_image, dynamic_array, dvf_array, output_path):
         resampler.set_floating_image(temp_dynamic)
         resampler.add_transformation(temp_dvf)
 
-        resampler.set_interpolation_type_to_linear()
+        resampler.set_interpolation_type_to_cubic_spline()
 
         resamplers.append(resampler)
 
@@ -218,8 +271,8 @@ def register_data(static_path, dynamic_path, output_path):
     dvf_path = []
 
     for i in range(len(dynamic_path)):
-        ref = eng_ref.ImageData(static_path)
-        flo = eng_flo.ImageData(dynamic_path[i])
+        ref = eng_ref.ImageData(dynamic_path[i])
+        flo = eng_flo.ImageData(static_path)
 
         algo.set_reference_image(ref)
         algo.set_floating_image(flo)
@@ -249,7 +302,7 @@ def op_test(static_image, output_path):
 
     temp_at = reg.AffineTransformation()
 
-    temp_at_array = temp_at.as_array()
+    temp_at_array = temp_at.as_array().astype(np.double)
     temp_at_array[0][0] = 1.25
     temp_at_array[1][1] = 1.25
     temp_at_array[2][2] = 1.25
@@ -263,7 +316,7 @@ def op_test(static_image, output_path):
     resampler.set_floating_image(temp_static)
     resampler.add_transformation(temp_at)
 
-    resampler.set_interpolation_type_to_linear()
+    resampler.set_interpolation_type_to_cubic_spline()
 
     warp = warp_image_forward(resampler, temp_static)
 
@@ -311,6 +364,16 @@ def get_dvf_path(input_dvf_path, dvf_split):
     return dvf_path
 
 
+def get_dynamic_data_magnitude(dynamic_path):
+    dynamic_data_magnitude = 0.0
+
+    for i in range(len(dynamic_path)):
+        dynamic_data_magnitude = dynamic_data_magnitude + np.nansum(
+            reg.NiftiImageData(dynamic_path[i]).as_array().astype(np.double), dtype=np.double)
+
+    return dynamic_data_magnitude
+
+
 def get_data_path(input_dynamic_path, dynamic_split):
     all_dynamic_path = os.listdir(input_dynamic_path)
     dynamic_path = []
@@ -326,99 +389,113 @@ def get_data_path(input_dynamic_path, dynamic_split):
     return dynamic_path
 
 
+def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_path, dvf_split, output_path, do_op_test,
+             do_reg, do_test_for_adj, do_blind_start, do_opt, prefix):
+    weighted_normalise = parser.parser(weighted_normalise_path, "weighted_normalise:=")
+
+    for i in range(len(weighted_normalise)):
+        weighted_normalise[i] = float(weighted_normalise[i])
+
+    if not os.path.exists(output_path):
+        os.makedirs(output_path, mode=0o770)
+
+    new_dvf_path = "{0}/new_dvfs/".format(output_path)
+
+    if not os.path.exists(new_dvf_path):
+        os.makedirs(new_dvf_path, mode=0o770)
+
+    # get static and dynamic paths
+    dynamic_path = get_data_path(input_data_path, data_split)
+
+    dynamic_data_magnitude = get_dynamic_data_magnitude(dynamic_path)
+
+    static_path = "{0}/static_image.nii".format(output_path)
+
+    # load static object for dvf registration
+    static_image = reg.NiftiImageData(dynamic_path[0])
+    static_image.write(static_path)
+
+    if do_op_test:
+        op_test(static_image, output_path)
+
+    # if do reg the calc dvf if not load
+    if do_reg:
+        dvf_path = register_data(static_path, dynamic_path, output_path)
+    else:
+        dvf_path = get_dvf_path(input_dvf_path, dvf_split)
+
+    # fix dvf header and load dvf objects
+    dvf_path = edit_header(dvf_path, new_dvf_path)
+
+    # sum the dynamic data into the static data
+    for i in range(1, len(dynamic_path)):
+        static_image.fill(
+            static_image.as_array().astype(np.double) + reg.NiftiImageData(dynamic_path[i]).as_array().astype(
+                np.double))
+
+    static_image.write(static_path)
+
+    # test for adj
+    if do_test_for_adj:
+        test_for_adj(static_image, dvf_path, output_path)
+        output_input(static_image, dynamic_path, dvf_path, output_path)
+
+    # initial static image
+    initial_static_image = static_image.clone()
+
+    if do_blind_start:
+        initial_static_image.fill(1.0)
+
+    initial_static_image.write("{0}/initial_static_image_{1}.nii".format(output_path, prefix))
+
+    # array to optimise
+    optimise_array = initial_static_image.as_array().astype(np.double)
+
+    # array bounds
+    bounds = []
+
+    for j in range(len(np.ravel(optimise_array.copy()))):
+        bounds.append((-np.inf, np.inf))
+
+    if do_opt:
+        # optimise
+        optimise_array = np.reshape(scipy.optimize.minimize(objective_function, np.ravel(optimise_array), args=(
+            static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude, output_path),
+                                                            method="L-BFGS-B", jac=gradient_function, bounds=bounds,
+                                                            tol=0.00000000001, options={"disp": True}).x,
+                                    optimise_array.shape)
+
+    # output
+    static_image.fill(optimise_array)
+    static_image.write("{0}/optimiser_output_{1}.nii".format(output_path, prefix))
+
+    difference = static_image.as_array().astype(np.double) - initial_static_image.as_array().astype(np.double)
+
+    difference_image = initial_static_image.clone()
+    difference_image.fill(difference)
+
+    static_image.write("{0}/optimiser_output_difference_{1}.nii".format(output_path, prefix))
+
+
 def main():
     # file paths to data
     input_data_path = parser.parser(sys.argv[1], "data_path:=")
     data_split = parser.parser(sys.argv[1], "data_split:=")
+    weighted_normalise_path = parser.parser(sys.argv[1], "weighted_normalise_path:=")
     input_dvf_path = parser.parser(sys.argv[1], "dvf_path:=")
     dvf_split = parser.parser(sys.argv[1], "dvf_split:=")
     output_path = parser.parser(sys.argv[1], "output_path:=")
     do_op_test = parser.parser(sys.argv[1], "do_op_test:=")
     do_reg = parser.parser(sys.argv[1], "do_reg:=")
     do_test_for_adj = parser.parser(sys.argv[1], "do_test_for_adj:=")
+    do_blind_start = parser.parser(sys.argv[1], "do_blind_start:=")
+    do_opt = parser.parser(sys.argv[1], "do_opt:=")
 
     for i in range(len(input_data_path)):
-        if not os.path.exists(output_path[i]):
-            os.makedirs(output_path[i], mode=0o770)
-
-        new_dvf_path = "{0}/new_dvfs/".format(output_path[i])
-
-        if not os.path.exists(new_dvf_path):
-            os.makedirs(new_dvf_path, mode=0o770)
-
-        # get static and dynamic paths
-        dynamic_path = get_data_path(input_data_path[i], data_split[i])
-
-        # load dynamic objects
-        dynamic_array = []
-
-        for j in range(len(dynamic_path)):
-            dynamic_array.append(reg.NiftiImageData(dynamic_path[j]))
-
-        static_path = "{0}/static_path.nii".format(output_path[i])
-
-        # load static objects
-        static_image = reg.NiftiImageData(dynamic_path[0])
-
-        for j in range(1, len(dynamic_path)):
-            static_image.fill(static_image.as_array().astype(np.double) + dynamic_array[j].as_array().astype(np.double))
-
-        static_image.write(static_path)
-
-        if bool(distutils.util.strtobool(do_op_test[i])):
-            op_test(static_image, output_path[i])
-
-        # if do reg the calc dvf if not load
-        if bool(distutils.util.strtobool(do_reg[i])):
-            dvf_path = register_data(static_path, dynamic_path, output_path[i])
-        else:
-            dvf_path = get_dvf_path(input_dvf_path[i], dvf_split[i])
-
-        # fix dvf header and load dvf objects
-        dvf_path = edit_header(dvf_path, new_dvf_path)
-
-        dvf_array = []
-
-        for j in range(len(dvf_path)):
-            dvf_array.append(reg.NiftiImageData3DDeformation(dvf_path[j]))
-
-        # create object to get forward and adj
-        resamplers = get_resamplers(static_image, dynamic_array, dvf_array, output_path[i])
-
-        # test for adj
-        if bool(distutils.util.strtobool(do_test_for_adj[i])):
-            test_for_adj(static_image, dvf_array, output_path[i])
-            output_input(static_image, dynamic_array, dvf_array, output_path[i])
-
-        # initial static image
-        initial_static_image = static_image.clone()
-
-        # array to optimise
-        optimise_array = static_image.as_array().astype(np.double)
-
-        # array bounds
-        bounds = []
-
-        for j in range(len(np.ravel(optimise_array.copy()))):
-            bounds.append((-np.inf, np.inf))
-
-        # optimise
-        optimise_array = np.reshape(
-            scipy.optimize.minimize(objective_function, np.ravel(optimise_array).astype(np.double),
-                                    args=(resamplers, dynamic_array, static_image, output_path[i]), method="L-BFGS-B",
-                                    jac=gradient_function, bounds=bounds, tol=0.0000000001,
-                                    options={"disp": True}).x, optimise_array.shape)
-
-        # output
-        static_image.fill(optimise_array)
-        static_image.write("{0}/optimiser_output_{1}.nii".format(output_path[i], str(i)))
-
-        difference = static_image.as_array().astype(np.double) - initial_static_image.as_array().astype(np.double)
-
-        difference_image = initial_static_image.clone()
-        difference_image.fill(difference)
-
-        static_image.write("{0}/optimiser_output_difference_{1}.nii".format(output_path[i], str(i)))
+        optimise(input_data_path[i], data_split[i], weighted_normalise_path[i], input_dvf_path[i], dvf_split[i],
+                 output_path[i], bool(distutils.util.strtobool(do_op_test[i])),
+                 bool(distutils.util.strtobool(do_reg[i])), bool(distutils.util.strtobool(do_test_for_adj[i])),
+                 bool(distutils.util.strtobool(do_blind_start[i])), bool(distutils.util.strtobool(do_opt[i])), str(i))
 
 
 main()
