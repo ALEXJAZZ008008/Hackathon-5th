@@ -462,7 +462,7 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
         optimise_array = np.reshape(scipy.optimize.minimize(objective_function, np.ravel(optimise_array), args=(
             static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude, output_path),
                                                             method="L-BFGS-B", jac=gradient_function, bounds=bounds,
-                                                            tol=0.00000000001, options={"disp": True}).x,
+                                                            tol=0.00000000000001, options={"disp": True}).x,
                                     optimise_array.shape)
 
     # output
