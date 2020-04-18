@@ -13,8 +13,6 @@ import scipy.optimize
 import nibabel
 
 import sirf.Reg as reg
-import sirf.Reg as eng_ref
-import sirf.Reg as eng_flo
 
 import parser
 
@@ -41,10 +39,6 @@ def gradient_function(optimise_array, static_image, dynamic_path, dvf_path, weig
                       output_path):
     static_image.fill(np.reshape(optimise_array, static_image.as_array().astype(np.double).shape))
 
-    temp_static_image_path = "{0}/temp_static.nii".format(output_path)
-    temp_dynamic_image_path = "{0}/temp_dynamic.nii".format(output_path)
-    temp_dvf_path = "{0}/temp_dvf.nii".format(output_path)
-
     gradient_value = static_image.clone()
     gradient_value.fill(0.0)
 
@@ -54,34 +48,21 @@ def gradient_function(optimise_array, static_image, dynamic_path, dvf_path, weig
         dynamic_image = reg.NiftiImageData(dynamic_path[i])
         dvf_image = reg.NiftiImageData3DDeformation(dvf_path[i])
 
-        static_image.write(temp_static_image_path)
-        dynamic_image.write(temp_dynamic_image_path)
-        dvf_image.write(temp_dvf_path)
-
-        temp_static = reg.NiftiImageData(temp_static_image_path)
-        temp_dynamic = reg.NiftiImageData(temp_dynamic_image_path)
-        temp_dvf = reg.NiftiImageData3DDeformation(temp_dvf_path)
-
         resampler = reg.NiftyResample()
 
-        resampler.set_reference_image(temp_static)
-        resampler.set_floating_image(temp_dynamic)
-        resampler.add_transformation(temp_dvf)
+        resampler.set_reference_image(static_image)
+        resampler.set_floating_image(dynamic_image)
+        resampler.add_transformation(dvf_image)
 
         resampler.set_interpolation_type_to_cubic_spline()
 
-        adjoint_image.fill(((np.nansum(dynamic_image.as_array().astype(np.double),
-                                       dtype=np.double) / dynamic_data_magnitude) * warp_image_forward(resampler,
-                                                                                                       temp_static)) - temp_dynamic.as_array().astype(
-            np.double))
-        gradient_value.fill((gradient_value.as_array().astype(np.double) + (
-                    warp_image_adjoint(resampler, adjoint_image) * weighted_normalise[i])))
+        adjoint_image.fill(((np.nansum(dynamic_image.as_array().astype(np.double), dtype=np.double) / dynamic_data_magnitude) * warp_image_forward(resampler, static_image)) - dynamic_image.as_array().astype(np.double))
+        gradient_value.fill((gradient_value.as_array().astype(np.double) + (warp_image_adjoint(resampler, adjoint_image) * weighted_normalise[i])))
 
-        gradient_value.write("{0}/gradient.nii".format(output_path))
+        # gradient_value.write("{0}/gradient.nii".format(output_path))
 
-    print("Max gradient value: {0}, Min gradient value: {1}, Mean gradient value: {2}, Gradient norm: {3}".format(
-        str(gradient_value.as_array().astype(np.double).max()),
-        str(gradient_value.as_array().astype(np.double).min()),
+    print("Max gradient value: {0}, Mean gradient value: {1}, Gradient norm: {2}".format(
+        str(np.amax(gradient_value.as_array().astype(np.double))),
         str(np.nanmean(gradient_value.as_array().astype(np.double), dtype=np.double)),
         str(np.linalg.norm(gradient_value.as_array().astype(np.double)))))
 
@@ -92,38 +73,29 @@ def objective_function(optimise_array, static_image, dynamic_path, dvf_path, wei
                        output_path):
     static_image.fill(np.reshape(optimise_array, static_image.as_array().astype(np.double).shape))
 
-    temp_static_image_path = "{0}/temp_static.nii".format(output_path)
-    temp_dynamic_image_path = "{0}/temp_dynamic.nii".format(output_path)
-    temp_dvf_path = "{0}/temp_dvf.nii".format(output_path)
-
     objective_value = 0.0
 
     for i in range(len(dynamic_path)):
         dynamic_image = reg.NiftiImageData(dynamic_path[i])
         dvf_image = reg.NiftiImageData3DDeformation(dvf_path[i])
 
-        static_image.write(temp_static_image_path)
-        dynamic_image.write(temp_dynamic_image_path)
-        dvf_image.write(temp_dvf_path)
-
-        temp_static = reg.NiftiImageData(temp_static_image_path)
-        temp_dynamic = reg.NiftiImageData(temp_dynamic_image_path)
-        temp_dvf = reg.NiftiImageData3DDeformation(temp_dvf_path)
-
         resampler = reg.NiftyResample()
 
-        resampler.set_reference_image(temp_static)
-        resampler.set_floating_image(temp_dynamic)
-        resampler.add_transformation(temp_dvf)
+        resampler.set_reference_image(static_image)
+        resampler.set_floating_image(dynamic_image)
+        resampler.add_transformation(dvf_image)
 
         resampler.set_interpolation_type_to_cubic_spline()
 
-        objective_value = objective_value + (np.nansum(np.square(dynamic_image.as_array().astype(np.double) - ((
-                                                                                                                       np.nansum(
-                                                                                                                           dynamic_image.as_array().astype(
-                                                                                                                               np.double),
-                                                                                                                           dtype=np.double) / dynamic_data_magnitude) * warp_image_forward(
-            resampler, static_image)), dtype=np.double), dtype=np.double) * weighted_normalise[i])
+        objective_value = objective_value + (np.nansum(np.square(dynamic_image.as_array().astype(np.double) - ((np.nansum(dynamic_image.as_array().astype(np.double), dtype=np.double) / dynamic_data_magnitude) * warp_image_forward(resampler, static_image)), dtype=np.double), dtype=np.double) * weighted_normalise[i])
+
+    print("Objective function value: {0}".format(str(objective_value)))
+
+    return objective_value
+
+
+def suv_objective_function(multiple, optimise_array):
+    objective_value = np.square(1.0 - np.nanmean(optimise_array.astype(np.double) * multiple[0]), dtype=np.double)
 
     print("Objective function value: {0}".format(str(objective_value)))
 
@@ -144,50 +116,41 @@ def output_input(static_image, dynamic_path, dvf_path, output_path):
 
 
 def test_for_adj(static_image, dvf_path, output_path):
-    temp_static_image_path = "{0}/temp_static.nii".format(output_path)
-    temp_dvf_path = "{0}/temp_dvf.nii".format(output_path)
-
     for i in range(len(dvf_path)):
         dvf_image = reg.NiftiImageData3DDeformation(dvf_path[i])
 
-        static_image.write(temp_static_image_path)
-        dvf_image.write(temp_dvf_path)
-
-        temp_static = reg.NiftiImageData(temp_static_image_path)
-        temp_dvf = reg.NiftiImageData3DDeformation(temp_dvf_path)
-
         resampler = reg.NiftyResample()
 
-        resampler.set_reference_image(temp_static)
-        resampler.set_floating_image(temp_static)
-        resampler.add_transformation(temp_dvf)
+        resampler.set_reference_image(static_image)
+        resampler.set_floating_image(static_image)
+        resampler.add_transformation(dvf_image)
 
         resampler.set_interpolation_type_to_cubic_spline()
 
-        warp = warp_image_forward(resampler, temp_static)
+        warp = warp_image_forward(resampler, static_image)
 
         warped_image = static_image.clone()
         warped_image.fill(warp)
 
         warped_image.write("{0}/warp_forward_{1}.nii".format(output_path, str(i)))
 
-        difference = temp_static.as_array().astype(np.double) - warp
+        difference = static_image.as_array().astype(np.double) - warp
 
-        difference_image = temp_static.clone()
+        difference_image = static_image.clone()
         difference_image.fill(difference)
 
         difference_image.write("{0}/warp_forward_difference_{1}.nii".format(output_path, str(i)))
 
-        warp = warp_image_adjoint(resampler, temp_static)
+        warp = warp_image_adjoint(resampler, static_image)
 
-        warped_image = temp_static.clone()
+        warped_image = static_image.clone()
         warped_image.fill(warp)
 
         warped_image.write("{0}/warp_adjoint_{1}.nii".format(output_path, str(i)))
 
-        difference = temp_static.as_array().astype(np.double) - warp
+        difference = static_image.as_array().astype(np.double) - warp
 
-        difference_image = temp_static.clone()
+        difference_image = static_image.clone()
         difference_image.fill(difference)
 
         difference_image.write("{0}/warp_adjoint_difference_{1}.nii".format(output_path, str(i)))
@@ -198,24 +161,15 @@ def test_for_adj(static_image, dvf_path, output_path):
 def get_resamplers(static_image, dynamic_array, dvf_array, output_path):
     resamplers = []
 
-    static_image_path = "{0}/temp_static.nii".format(output_path)
-    dynamic_array_path = "{0}/temp_dynamic.nii".format(output_path)
-    dvf_array_path = "{0}/temp_dvf.nii".format(output_path)
-
     for j in range(len(dynamic_array)):
+        dynamic_image = dynamic_array[j]
+        dvf_image = dvf_array[j]
+
         resampler = reg.NiftyResample()
 
-        static_image.write(static_image_path)
-        dynamic_array[j].write(dynamic_array_path)
-        dvf_array[j].write(dvf_array_path)
-
-        temp_static = reg.NiftiImageData(static_image_path)
-        temp_dynamic = reg.NiftiImageData(dynamic_array_path)
-        temp_dvf = reg.NiftiImageData3DDeformation(dvf_array_path)
-
-        resampler.set_reference_image(temp_static)
-        resampler.set_floating_image(temp_dynamic)
-        resampler.add_transformation(temp_dvf)
+        resampler.set_reference_image(static_image)
+        resampler.set_floating_image(dynamic_image)
+        resampler.add_transformation(dvf_image)
 
         resampler.set_interpolation_type_to_cubic_spline()
 
@@ -271,8 +225,8 @@ def register_data(static_path, dynamic_path, output_path):
     dvf_path = []
 
     for i in range(len(dynamic_path)):
-        ref = eng_ref.ImageData(dynamic_path[i])
-        flo = eng_flo.ImageData(static_path)
+        ref = reg.ImageData(dynamic_path[i])
+        flo = reg.ImageData(static_path)
 
         algo.set_reference_image(ref)
         algo.set_floating_image(flo)
@@ -294,12 +248,6 @@ def register_data(static_path, dynamic_path, output_path):
 
 
 def op_test(static_image, output_path):
-    static_image_path = "{0}/temp_static.nii".format(output_path)
-
-    static_image.write(static_image_path)
-
-    temp_static = reg.NiftiImageData(static_image_path)
-
     temp_at = reg.AffineTransformation()
 
     temp_at_array = temp_at.as_array().astype(np.double)
@@ -312,36 +260,36 @@ def op_test(static_image, output_path):
 
     resampler = reg.NiftyResample()
 
-    resampler.set_reference_image(temp_static)
-    resampler.set_floating_image(temp_static)
+    resampler.set_reference_image(static_image)
+    resampler.set_floating_image(static_image)
     resampler.add_transformation(temp_at)
 
     resampler.set_interpolation_type_to_cubic_spline()
 
-    warp = warp_image_forward(resampler, temp_static)
+    warp = warp_image_forward(resampler, static_image)
 
     warped_image = static_image.clone()
     warped_image.fill(warp)
 
     warped_image.write("{0}/op_test_warp_forward.nii".format(output_path))
 
-    difference = temp_static.as_array().astype(np.double) - warp
+    difference = static_image.as_array().astype(np.double) - warp
 
-    difference_image = temp_static.clone()
+    difference_image = static_image.clone()
     difference_image.fill(difference)
 
     difference_image.write("{0}/op_test_warp_forward_difference.nii".format(output_path))
 
-    warp = warp_image_adjoint(resampler, temp_static)
+    warp = warp_image_adjoint(resampler, static_image)
 
-    warped_image = temp_static.clone()
+    warped_image = static_image.clone()
     warped_image.fill(warp)
 
     warped_image.write("{0}/op_test_warp_adjoint.nii".format(output_path))
 
-    difference = temp_static.as_array().astype(np.double) - warp
+    difference = static_image.as_array().astype(np.double) - warp
 
-    difference_image = temp_static.clone()
+    difference_image = static_image.clone()
     difference_image.fill(difference)
 
     difference_image.write("{0}/warp_adjoint_difference.nii".format(output_path))
@@ -391,11 +339,6 @@ def get_data_path(input_dynamic_path, dynamic_split):
 
 def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_path, dvf_split, output_path, do_op_test,
              do_reg, do_test_for_adj, do_blind_start, do_opt, prefix):
-    weighted_normalise = parser.parser(weighted_normalise_path, "weighted_normalise:=")
-
-    for i in range(len(weighted_normalise)):
-        weighted_normalise[i] = float(weighted_normalise[i])
-
     if not os.path.exists(output_path):
         os.makedirs(output_path, mode=0o770)
 
@@ -418,20 +361,21 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
     if do_op_test:
         op_test(static_image, output_path)
 
-    # if do reg the calc dvf if not load
-    if do_reg:
-        dvf_path = register_data(static_path, dynamic_path, output_path)
-    else:
-        dvf_path = get_dvf_path(input_dvf_path, dvf_split)
+    dvf_path = None
 
-    # fix dvf header and load dvf objects
-    dvf_path = edit_header(dvf_path, new_dvf_path)
+    if do_test_for_adj or do_opt:
+        # if do reg the calc dvf if not load
+        if do_reg:
+            dvf_path = register_data(static_path, dynamic_path, output_path)
+        else:
+            dvf_path = get_dvf_path(input_dvf_path, dvf_split)
+
+        # fix dvf header and load dvf objects
+        dvf_path = edit_header(dvf_path, new_dvf_path)
 
     # sum the dynamic data into the static data
     for i in range(1, len(dynamic_path)):
-        static_image.fill(
-            static_image.as_array().astype(np.double) + reg.NiftiImageData(dynamic_path[i]).as_array().astype(
-                np.double))
+        static_image.fill(static_image.as_array().astype(np.double) + reg.NiftiImageData(dynamic_path[i]).as_array().astype(np.double))
 
     static_image.write(static_path)
 
@@ -454,16 +398,22 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
     # array bounds
     bounds = []
 
-    for j in range(len(np.ravel(optimise_array.copy()))):
-        bounds.append((-np.inf, np.inf))
+    for j in range(len(np.ravel(optimise_array))):
+        bounds.append((None, None))
+
+    tol = 0.000000000009
 
     if do_opt:
+        weighted_normalise = parser.parser(weighted_normalise_path, "weighted_normalise:=")
+
+        for i in range(len(weighted_normalise)):
+            weighted_normalise[i] = float(weighted_normalise[i])
+
         # optimise
         optimise_array = np.reshape(scipy.optimize.minimize(objective_function, np.ravel(optimise_array), args=(
             static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude, output_path),
                                                             method="L-BFGS-B", jac=gradient_function, bounds=bounds,
-                                                            tol=0.00000000000001, options={"disp": True}).x,
-                                    optimise_array.shape)
+                                                            tol=tol, options={"disp": True}).x, optimise_array.shape)
 
     # output
     static_image.fill(optimise_array)
@@ -475,6 +425,22 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
     difference_image.fill(difference)
 
     static_image.write("{0}/optimiser_output_difference_{1}.nii".format(output_path, prefix))
+
+    multiple = 1.0
+
+    nan_optimise_array = optimise_array
+    nan_optimise_array[nan_optimise_array == 0.0] = np.nan
+
+    # array bounds
+    bounds = [(None, None)]
+
+    # optimise
+    multiple = scipy.optimize.minimize(suv_objective_function, np.asarray(multiple), args=(nan_optimise_array),
+                                       method="L-BFGS-B", tol=tol, bounds=bounds, options={"disp": True}).x[0]
+
+    # output
+    static_image.fill(optimise_array * multiple)
+    static_image.write("{0}/suv_optimiser_output_{1}.nii".format(output_path, prefix))
 
 
 def main():

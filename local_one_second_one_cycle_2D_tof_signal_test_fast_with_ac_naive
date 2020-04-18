@@ -1,0 +1,11 @@
+data_path:=/home/alex/Documents/jrmomo/interfile_to_pet/results/local_one_second_one_cycle_2D_tof_signal_test_fast_with_ac_naive/reconstructed/dynamic/
+data_split:=_fixed
+weighted_normalise_path:=
+dvf_path:=
+dvf_split:=
+output_path:=/home/alex/Documents/jrmomo/Hackathon-5th/local_one_second_one_cycle_2D_tof_signal_test_fast_with_ac_naive_output/
+do_op_test:=False
+do_reg:=False
+do_test_for_adj:=False
+do_blind_start:=False
+do_opt:=False
