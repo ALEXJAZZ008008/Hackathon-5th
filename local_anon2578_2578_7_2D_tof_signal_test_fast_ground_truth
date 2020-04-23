@@ -1,0 +1,11 @@
+data_path:=/home/alex/Documents/jrmomo/run_momo/run_evaluation/temp/results/local_anon2578_2578_7_2D_tof_signal_test_fast/ground_truth/
+data_split:=cropped_ground_truth
+weighted_normalise_path:=
+dvf_path:=
+dvf_split:=
+output_path:=/home/alex/Documents/jrmomo/Hackathon-5th/local_anon2578_2578_7_2D_tof_signal_test_fast_ground_truth_output/
+do_op_test:=False
+do_reg:=False
+do_test_for_adj:=False
+do_blind_start:=False
+do_opt:=False
