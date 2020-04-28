@@ -429,7 +429,8 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
     multiple = 1.0
 
     nan_optimise_array = optimise_array
-    nan_optimise_array[nan_optimise_array == 0.0] = np.nan
+    nan_optimise_array[nan_optimise_array < 0.01] = np.nan
+    nan_optimise_array = nan_optimise_array - np.nanmin(nan_optimise_array)
 
     # array bounds
     bounds = [(None, None)]
@@ -439,8 +440,17 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
                                        method="L-BFGS-B", tol=tol, bounds=bounds, options={"disp": True}).x[0]
 
     # output
-    static_image.fill(optimise_array * multiple)
+    nan_optimise_array = nan_optimise_array - np.nanmin(nan_optimise_array)
+    nan_optimise_array = np.nan_to_num(nan_optimise_array)
+    nan_optimise_array[nan_optimise_array < 0.01] = 0.0
+    nan_optimise_array = nan_optimise_array * multiple
+
+    static_image.fill(nan_optimise_array)
     static_image.write("{0}/suv_optimiser_output_{1}.nii".format(output_path, prefix))
+
+    naive_suv_optimise_array = optimise_array / 0.25
+    static_image.fill(naive_suv_optimise_array)
+    static_image.write("{0}/naive_suv_optimiser_output_{1}.nii".format(output_path, prefix))
 
 
 def main():

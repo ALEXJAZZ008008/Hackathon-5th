@@ -1,4 +1,4 @@
-data_path:=/home/alex/Documents/jrmomo/interfile_to_pet/results/local_anon2578_2578_7_2D_tof_signal_test_fast_with_ac_naive/reconstructed/dynamic/
+data_path:=/media/alex/Seagate Portable Drive/interfile_to_pet/local_anon2578_2578_7_2D_tof_signal_test_fast_with_ac_naive/reconstructed/dynamic/
 data_split:=_fixed
 weighted_normalise_path:=
 dvf_path:=
