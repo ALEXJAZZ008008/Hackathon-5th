@@ -1,0 +1,12 @@
+data_path:=/media/alex/Seagate Portable Drive/interfile_to_pet/local_anon2578_2578_7_2D_tof_signal_test_fast_with_ac/cropped_input_lesion/dynamic/
+data_split:=_fixed
+weighted_normalise_path:=/media/alex/Seagate Portable Drive/interfile_to_pet/local_anon2578_2578_7_2D_tof_signal_test_fast/weighted_normalise_cropped_input/weighted_normalise_cropped_input
+dvf_path:=/media/alex/Seagate Portable Drive/run_momo/local_anon2578_2578_7_2D_tof_signal_test_fast_with_ac/evaluation/reconstructed_static/
+dvf_split:=DVF_
+output_path:=/home/alex/Documents/jrmomo/Hackathon-5th/local_anon2578_2578_7_2D_tof_signal_test_fast_with_ac_lesion_output/
+do_op_test:=False
+do_reg:=False
+do_test_for_adj:=False
+do_blind_start:=False
+do_opt:=True
+do_back_warp:=True

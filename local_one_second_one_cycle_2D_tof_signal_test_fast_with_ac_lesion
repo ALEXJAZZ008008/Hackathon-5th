@@ -1,4 +1,4 @@
-data_path:=/home/alex/Documents/jrmomo/interfile_to_pet/results/local_one_second_one_cycle_2D_tof_signal_test_fast_with_ac/reconstructed/dynamic/
+data_path:=/home/alex/Documents/jrmomo/interfile_to_pet/results/local_one_second_one_cycle_2D_tof_signal_test_fast_with_ac/cropped_input_lesion/dynamic/
 data_split:=_fixed
 weighted_normalise_path:=/home/alex/Documents/jrmomo/interfile_to_pet/results/local_one_second_one_cycle_2D_tof_signal_test_fast/weighted_normalise_cropped_input/weighted_normalise_cropped_input
 dvf_path:=/home/alex/Documents/jrmomo/run_momo/run_evaluation/temp/results/local_one_second_one_cycle_2D_tof_signal_test_fast_with_ac/evaluation/reconstructed_static/

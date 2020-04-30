@@ -35,8 +35,7 @@ def warp_image_adjoint(resampler, dynamic_image):
     return resampler.adjoint(dynamic_image).as_array().astype(np.double)
 
 
-def gradient_function(optimise_array, static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude,
-                      output_path):
+def gradient_function(optimise_array, static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude):
     static_image.fill(np.reshape(optimise_array, static_image.as_array().astype(np.double).shape))
 
     gradient_value = static_image.clone()
@@ -69,8 +68,7 @@ def gradient_function(optimise_array, static_image, dynamic_path, dvf_path, weig
     return np.ravel(gradient_value.as_array().astype(np.double)).astype(np.double)
 
 
-def objective_function(optimise_array, static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude,
-                       output_path):
+def objective_function(optimise_array, static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude):
     static_image.fill(np.reshape(optimise_array, static_image.as_array().astype(np.double).shape))
 
     objective_value = 0.0
@@ -158,7 +156,7 @@ def test_for_adj(static_image, dvf_path, output_path):
     return True
 
 
-def get_resamplers(static_image, dynamic_array, dvf_array, output_path):
+def get_resamplers(static_image, dynamic_array, dvf_array):
     resamplers = []
 
     for j in range(len(dynamic_array)):
@@ -337,8 +335,31 @@ def get_data_path(input_dynamic_path, dynamic_split):
     return dynamic_path
 
 
+def back_warp(static_path, dvf_path, output_path):
+    if not os.path.exists(output_path):
+        os.makedirs(output_path, mode=0o770)
+
+    for i in range(len(dvf_path)):
+        static_image = reg.NiftiImageData(static_path)
+        dvf_image = reg.NiftiImageData3DDeformation(dvf_path[i])
+
+        resampler = reg.NiftyResample()
+
+        resampler.set_reference_image(static_image)
+        resampler.set_floating_image(static_image)
+        resampler.add_transformation(dvf_image)
+
+        resampler.set_interpolation_type_to_cubic_spline()
+
+        warped_static_image = warp_image_forward(resampler, static_image)
+
+        static_image.fill(warped_static_image)
+
+        static_image.write("{0}/back_warped_{1}.nii".format(output_path, str(i)))
+
+
 def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_path, dvf_split, output_path, do_op_test,
-             do_reg, do_test_for_adj, do_blind_start, do_opt, prefix):
+             do_reg, do_test_for_adj, do_blind_start, do_opt, do_back_warp, prefix):
     if not os.path.exists(output_path):
         os.makedirs(output_path, mode=0o770)
 
@@ -411,7 +432,7 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
 
         # optimise
         optimise_array = np.reshape(scipy.optimize.minimize(objective_function, np.ravel(optimise_array), args=(
-            static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude, output_path),
+            static_image, dynamic_path, dvf_path, weighted_normalise, dynamic_data_magnitude),
                                                             method="L-BFGS-B", jac=gradient_function, bounds=bounds,
                                                             tol=tol, options={"disp": True}).x, optimise_array.shape)
 
@@ -425,6 +446,9 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
     difference_image.fill(difference)
 
     static_image.write("{0}/optimiser_output_difference_{1}.nii".format(output_path, prefix))
+
+    if do_back_warp:
+        back_warp(static_path, dvf_path, "{0}/back_warp/".format(output_path))
 
     multiple = 1.0
 
@@ -466,12 +490,14 @@ def main():
     do_test_for_adj = parser.parser(sys.argv[1], "do_test_for_adj:=")
     do_blind_start = parser.parser(sys.argv[1], "do_blind_start:=")
     do_opt = parser.parser(sys.argv[1], "do_opt:=")
+    do_back_warp = parser.parser(sys.argv[1], "do_back_warp:=")
 
     for i in range(len(input_data_path)):
         optimise(input_data_path[i], data_split[i], weighted_normalise_path[i], input_dvf_path[i], dvf_split[i],
                  output_path[i], bool(distutils.util.strtobool(do_op_test[i])),
                  bool(distutils.util.strtobool(do_reg[i])), bool(distutils.util.strtobool(do_test_for_adj[i])),
-                 bool(distutils.util.strtobool(do_blind_start[i])), bool(distutils.util.strtobool(do_opt[i])), str(i))
+                 bool(distutils.util.strtobool(do_blind_start[i])), bool(distutils.util.strtobool(do_opt[i])),
+                 bool(distutils.util.strtobool(do_back_warp[i])), str(i))
 
 
 main()
