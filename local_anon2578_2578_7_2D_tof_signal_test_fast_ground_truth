@@ -1,4 +1,4 @@
-data_path:=/media/alex/Seagate Portable Drive/run_momo/local_anon2578_2578_7_2D_tof_signal_test_fast/ground_truth/
+data_path:=/home/alex/Documents/jrmomo/run_momo/run_evaluation/temp/results/local_anon2578_2578_7_2D_tof_signal_test_fast/ground_truth/
 data_split:=cropped_ground_truth
 weighted_normalise_path:=
 dvf_path:=

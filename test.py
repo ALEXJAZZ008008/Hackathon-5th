@@ -384,7 +384,7 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
 
     dvf_path = None
 
-    if do_test_for_adj or do_opt:
+    if do_test_for_adj or do_opt or do_back_warp:
         # if do reg the calc dvf if not load
         if do_reg:
             dvf_path = register_data(static_path, dynamic_path, output_path)
