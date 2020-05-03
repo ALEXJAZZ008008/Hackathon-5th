@@ -62,7 +62,7 @@ def gradient_function(optimise_array, static_image, dynamic_path, dvf_path, weig
 
     print("Max gradient value: {0}, Mean gradient value: {1}, Gradient norm: {2}".format(
         str(np.amax(gradient_value.as_array().astype(np.double))),
-        str(np.nanmean(gradient_value.as_array().astype(np.double), dtype=np.double)),
+        str(np.nanmean(np.abs(gradient_value.as_array().astype(np.double), dtype=np.double))),
         str(np.linalg.norm(gradient_value.as_array().astype(np.double)))))
 
     return np.ravel(gradient_value.as_array().astype(np.double)).astype(np.double)
