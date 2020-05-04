@@ -1,0 +1,12 @@
+data_path:=/home/alex/Documents/jrmomo/sirfmomo/to_nii/output/COAG001_output_signal/nii_input_data_fixed/
+data_split:=.nii
+weighted_normalise_path:=/home/alex/Documents/jrmomo/moving_window_pet_pca/output/COAG001/Baseline/output_signal_1/normalise_array.txt
+dvf_path:=/home/alex/Documents/jrmomo/sirfmomo/to_nii/output/COAG001_output_signal_momo/
+dvf_split:=DVF_
+output_path:=/home/alex/Documents/jrmomo/Hackathon-5th/COAG001_output_signal_output/
+do_op_test:=False
+do_reg:=False
+do_test_for_adj:=False
+do_blind_start:=False
+do_opt:=True
+do_back_warp:=True

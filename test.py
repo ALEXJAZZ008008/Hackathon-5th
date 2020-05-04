@@ -357,6 +357,8 @@ def back_warp(static_path, dvf_path, output_path):
 
         static_image.write("{0}/back_warped_{1}.nii".format(output_path, str(i)))
 
+        return True
+
 
 def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_path, dvf_split, output_path, do_op_test,
              do_reg, do_test_for_adj, do_blind_start, do_opt, do_back_warp, prefix):
@@ -422,10 +424,13 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
     for j in range(len(np.ravel(optimise_array))):
         bounds.append((None, None))
 
-    tol = 0.000000000009
+    tol = 0.9
 
     if do_opt:
         weighted_normalise = parser.parser(weighted_normalise_path, "weighted_normalise:=")
+
+        if weighted_normalise is None:
+            weighted_normalise = parser.parser(weighted_normalise_path, "normalise_array:=")
 
         for i in range(len(weighted_normalise)):
             weighted_normalise[i] = float(weighted_normalise[i])
