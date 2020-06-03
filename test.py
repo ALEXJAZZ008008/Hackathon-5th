@@ -422,9 +422,9 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
     bounds = []
 
     for j in range(len(np.ravel(optimise_array))):
-        bounds.append((None, None))
+        bounds.append((0.01, 10.0))
 
-    tol = 0.9
+    tol = 0.000000000009
 
     if do_opt:
         weighted_normalise = parser.parser(weighted_normalise_path, "weighted_normalise:=")
@@ -462,7 +462,7 @@ def optimise(input_data_path, data_split, weighted_normalise_path, input_dvf_pat
     nan_optimise_array = nan_optimise_array - np.nanmin(nan_optimise_array)
 
     # array bounds
-    bounds = [(None, None)]
+    bounds = [(0.01, 10.0)]
 
     # optimise
     multiple = scipy.optimize.minimize(suv_objective_function, np.asarray(multiple), args=(nan_optimise_array),
