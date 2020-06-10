@@ -1,0 +1,12 @@
+data_path:=/media/alex/89a7329e-abf2-4715-8df6-7e398304f217/sirfmomo/local_anon2578_2578_7_2D_tof_signal_test_fast_output_group_wise/
+data_split:=new_static_image_3
+weighted_normalise_path:=
+dvf_path:=
+dvf_split:=
+output_path:=/home/alex/Documents/jrmomo/Hackathon-5th/local_anon2578_2578_7_2D_tof_signal_test_fast_sirfmomo_group_wise_output/
+do_op_test:=False
+do_reg:=False
+do_test_for_adj:=False
+do_blind_start:=False
+do_opt:=False
+do_back_warp:=False
