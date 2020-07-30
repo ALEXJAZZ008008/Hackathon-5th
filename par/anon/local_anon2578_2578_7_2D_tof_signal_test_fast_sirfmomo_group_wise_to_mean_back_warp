@@ -1,0 +1,12 @@
+data_path:=/home/alex/Documents/jrmomo/sirfmomo/sirfmomo/mean_reg/local_anon2578_2578_7_2D_tof_signal_test_fast_output_groupwise_registration_to_mean/
+data_split:=new_static_image_3
+weighted_normalise_path:=
+dvf_path:=
+dvf_split:=
+output_path:=/home/alex/Documents/jrmomo/Hackathon-5th/local_anon2578_2578_7_2D_tof_signal_test_fast_sirfmomo_output_groupwise_registration_to_mean/
+do_op_test:=False
+do_reg:=False
+do_test_for_adj:=False
+do_blind_start:=False
+do_opt:=False
+do_back_warp:=True
