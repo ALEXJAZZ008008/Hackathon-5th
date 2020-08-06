@@ -1,0 +1,12 @@
+data_path:=/home/alex/Documents/jrmomo/moving_window_pet_pca/COAG_gated_recon/COAG001/Baseline/Scan1/unlist_mean_output_pca_1/recon_dir/user_output/motion_correction/
+data_split:=GEHC_QF2_FinalAverage.nii
+weighted_normalise_path:=
+dvf_path:=
+dvf_split:=
+output_path:=/home/alex/Documents/jrmomo/Hackathon-5th/upgrade/unlist_mean_output_pca_1/
+do_op_test:=False
+do_reg:=False
+do_test_for_adj:=False
+do_blind_start:=False
+do_opt:=False
+do_back_warp:=False
